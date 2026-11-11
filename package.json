@@ -1,0 +1,31 @@
+{
+  "devDependencies": {
+    "@fission-ai/openspec": "1.17.0",
+    "@playwright/test": "1.65.0",
+    "@types/node": "26.6.6",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "@vitejs/plugin-react": "6.3.0",
+    "typescript": "7.0.2",
+    "vite": "8.3.8"
+  },
+  "name": "app-builder",
+  "dependencies": {
+    "lucide-react": "1.72.0",
+    "react": "19.3.1",
+    "react-dom": "19.3.1"
+  },
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "test": "node --test tests/*.test.ts",
+    "test:e2e": "playwright test",
+    "test:live": "playwright test --config playwright.live.config.ts"
+  },
+  "private": true,
+  "engines": {
+    "node": "24.x"
+  }
+}
