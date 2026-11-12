@@ -37,7 +37,7 @@ APP_BUILDER_URL=http://127.0.0.1:5173 npm run test:live
 
 ## Vercel 部署
 
-将 GitHub 仓库导入 Vercel 项目，框架选择 Vite，Node.js 选择 24.x。为生产环境配置 `OPENAI_API_KEY`，需要时再配置 `OPENAI_MODEL`。`vercel.json` 将生成接口的运行上限设为 60 秒。部署后，检查访问保护设置，使评审可以直接访问。
+将 GitHub 仓库导入 Vercel 项目，框架选择 Vite，Node.js 选择 24.x。启用项目的 OIDC Federation 后，部署函数可用项目身份访问 [Vercel AI Gateway](https://vercel.com/docs/ai-gateway/authentication-and-byok)。如果配置了 `OPENAI_API_KEY`，函数会直接使用 OpenAI。`OPENAI_MODEL` 默认选择 `gpt-5-mini`。`vercel.json` 将生成接口的运行上限设为 60 秒。部署后，用无痕窗口确认评审可以直接访问。
 
 生成接口带有按实例计数的限流。对外开放前，在 Vercel 配置 `/api/generate` 的入口限流，并为模型项目配置用量告警。用无痕窗口分别生成待办清单和记账页，实际操作预览，再刷新确认项目恢复。
 

@@ -37,3 +37,18 @@ test('the route reports a missing model key without making an upstream request',
   assert.equal(response.status, 503)
   assert.equal((await response.json()).code, 'NOT_CONFIGURED')
 })
+
+test('Vercel gateway sends the project token and provider-qualified model to Responses API', async () => {
+  const model = createOpenAIModel({ apiKey: 'test-project-token', gateway: true }, async (url, options) => {
+    assert.equal(url, 'https://ai-gateway.vercel.sh/v1/responses')
+    assert.equal(new Headers(options?.headers).get('Authorization'), 'Bearer test-project-token')
+    const payload = JSON.parse(String(options?.body))
+    assert.equal(payload.model, 'openai/gpt-5-mini')
+    assert.equal(payload.text.format.type, 'json_schema')
+    return Response.json({
+      status: 'completed',
+      output: [{ type: 'message', content: [{ type: 'output_text', text: JSON.stringify(app) }] }],
+    })
+  })
+  assert.deepEqual(await model('制作记账页', new AbortController().signal), app)
+})

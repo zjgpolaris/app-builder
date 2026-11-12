@@ -5,12 +5,16 @@ import { appInstructions } from './instructions.ts'
 type OutputPart = { type?: string; text?: string }
 type ProviderResponse = { status?: string; output?: { type?: string; content?: OutputPart[] }[] }
 
-export function createOpenAIModel({ apiKey, model }: { apiKey?: string; model?: string }, fetcher = fetch) {
-  const modelId = model?.trim() || 'gpt-5-mini'
+type ModelOptions = { apiKey?: string; model?: string; gateway?: boolean }
+
+export function createOpenAIModel({ apiKey, model, gateway = false }: ModelOptions, fetcher = fetch) {
+  const modelName = model?.trim() || 'gpt-5-mini'
+  const modelId = gateway && !modelName.includes('/') ? `openai/${modelName}` : modelName
+  const endpoint = gateway ? 'https://ai-gateway.vercel.sh/v1/responses' : 'https://api.openai.com/v1/responses'
   return async (prompt: string, signal: AbortSignal): Promise<unknown> => {
     if (!apiKey?.trim()) throw new GenerationError('NOT_CONFIGURED', 503)
 
-    const response = await fetcher('https://api.openai.com/v1/responses', {
+    const response = await fetcher(endpoint, {
       method: 'POST',
       signal,
       headers: { Authorization: `Bearer ${apiKey.trim()}`, 'Content-Type': 'application/json' },
@@ -20,7 +24,7 @@ export function createOpenAIModel({ apiKey, model }: { apiKey?: string; model?: 
         input: prompt,
         store: false,
         max_output_tokens: 8_000,
-        reasoning: modelId === 'gpt-5-mini' ? { effort: 'minimal' } : undefined,
+        reasoning: !gateway && modelId === 'gpt-5-mini' ? { effort: 'minimal' } : undefined,
         text: { format: { type: 'json_schema', name: 'web_app', strict: true, schema: generatedAppSchema } },
       }),
     })
