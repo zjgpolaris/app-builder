@@ -9,8 +9,7 @@
     "verbatimModuleSyntax": true,
     "strict": true,
     "noEmit": true,
-    "skipLibCheck": true,
-    "types": ["node", "vite/client"]
+    "skipLibCheck": true
   },
   "include": ["src", "api", "server", "tests", "vite.config.ts", "playwright*.config.ts"]
 }
