@@ -16,6 +16,8 @@ npm run dev
 
 刷新工作台可恢复同一浏览器里最近一次成功生成的需求和应用代码。预览内部的任务、支出等运行数据会在重新加载预览时重置。
 
+没有 OpenAI 密钥时，可以用 [Ollama](https://docs.ollama.com/macos) 在本机运行真实生成。启动 Ollama 后运行 `ollama pull qwen2.5-coder:3b`，再用 `OLLAMA_MODEL=qwen2.5-coder:3b npm run dev` 启动工作台。也可以把 `OLLAMA_MODEL` 写入 `.env.local` 并重启工作台。本地开发服务会访问 `127.0.0.1:11434`。
+
 ## 验证
 
 ```bash

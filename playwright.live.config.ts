@@ -7,5 +7,5 @@ export default defineConfig({
   testDir: './tests',
   testMatch: '**/generation.live.spec.ts',
   timeout: 150_000,
-  use: { baseURL, channel: process.env.PLAYWRIGHT_CHANNEL },
+  use: { baseURL, channel: process.env.PLAYWRIGHT_CHANNEL, actionTimeout: 10_000 },
 })

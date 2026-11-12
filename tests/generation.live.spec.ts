@@ -21,9 +21,9 @@ test('an anonymous visitor can generate and operate two apps and restore the las
     return body
   }
 
-  const todo = await generate('生成一个中文待办清单。用可访问标签「任务名称」标记输入框。点击「添加任务」后在列表中显示任务，每条任务有可勾选完成的复选框，用任务名称标记复选框。无需联网。')
+  const todo = await generate('制作中文待办清单。输入框 aria-label=任务名称，添加任务按钮。点击按钮在 ul 新增 li；每项是一个 label，内含复选框和用户输入的任务名称。')
   await preview.getByRole('textbox', { name: '任务名称', exact: true }).fill('准备笔试')
-  await preview.getByRole('button', { name: '添加任务', exact: true }).click()
+  await preview.getByRole('button', { name: '添加任务', exact: true }).press('Enter')
   const task = preview.getByRole('checkbox', { name: '准备笔试', exact: true })
   await task.check()
   await expect(task).toBeChecked()
@@ -31,9 +31,9 @@ test('an anonymous visitor can generate and operate two apps and restore the las
   const expenses = await generate(expensePrompt)
   expect(expenses).not.toEqual(todo)
   for (const [name, amount] of [['交通', '12'], ['咖啡', '8']]) {
-    await preview.getByRole('textbox', { name: '支出名称', exact: true }).fill(name)
-    await preview.getByRole('spinbutton', { name: '金额', exact: true }).fill(amount)
-    await preview.getByRole('button', { name: '添加支出', exact: true }).click()
+    await preview.getByRole('textbox', { name: /^支出名称\s*[:：]?$/ }).fill(name)
+    await preview.getByRole('spinbutton', { name: /^金额\s*[:：]?$/ }).fill(amount)
+    await preview.getByRole('button', { name: '添加支出', exact: true }).press('Enter')
   }
   await expect(preview.getByText('交通', { exact: false }).first()).toBeVisible()
   await expect(preview.getByText('咖啡', { exact: false }).first()).toBeVisible()
@@ -41,5 +41,5 @@ test('an anonymous visitor can generate and operate two apps and restore the las
 
   await page.reload()
   await expect(input).toHaveValue(expensePrompt)
-  await expect(preview.getByRole('textbox', { name: '支出名称', exact: true })).toBeVisible()
+  await expect(preview.getByRole('textbox', { name: /^支出名称\s*[:：]?$/ })).toBeVisible()
 })
