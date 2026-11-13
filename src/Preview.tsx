@@ -92,7 +92,8 @@ export function Preview({ app, namespace, onRepair }: { app: GeneratedApp; names
         <span>预览脚本遇到错误：{failure}</span>
         {onRepair ? <button type="button" onClick={() => onRepair(failure)}>修复应用</button> : null}
       </div> : null}
-      <iframe ref={frame} title="应用预览" sandbox="allow-scripts" srcDoc={document} />
+      <iframe ref={frame} title="应用预览" tabIndex={0} sandbox="allow-scripts" srcDoc={document}
+        onLoad={() => frame.current?.focus()} />
     </>
   )
 }

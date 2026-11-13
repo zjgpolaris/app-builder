@@ -224,6 +224,7 @@ export function Workspace() {
                 project ? (saved ? <><Check size={15} />已保存需求和应用代码</> :
                   <><CircleAlert size={15} />当前结果未保存，刷新后可能丢失</>) :
                   <><span className="status-dot" />生成的项目将保存在此浏览器</>}
+              {previewApp ? <span className="preview-keyboard-hint">键盘操作请点击预览区域</span> : null}
             </div>
           </section>
         </div>

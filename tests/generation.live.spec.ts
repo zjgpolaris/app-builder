@@ -53,9 +53,9 @@ test('an anonymous visitor can generate and operate two apps and restore the las
   await expect.poll(() => preview.locator('body').innerText()).toMatch(/总额[^\d]*20(?:[.,]00)?\b/)
 })
 
-test('a generated tank game starts without a preview runtime error', async ({ page }) => {
+test('a generated 2048 game moves, merges, scores, and restores progress', async ({ page }) => {
   await page.goto('/')
-  await page.getByRole('textbox', { name: '应用需求' }).fill('帮我做一个坦克大战的网页版，使用 Canvas 绘制，支持键盘移动和射击，显示操作说明。')
+  await page.getByRole('textbox', { name: '应用需求' }).fill('做一个2048游戏，支持方向键移动、相同数字合并、计分，刷新后保留进度。棋盘容器 id 为 grid，每个格子 class 为 cell，当前分数 id 为 score。')
   const [response] = await Promise.all([
     page.waitForResponse(response => new URL(response.url()).pathname === '/api/generate'
       && response.request().method() === 'POST', { timeout: 110_000 }),
@@ -66,7 +66,45 @@ test('a generated tank game starts without a preview runtime error', async ({ pa
   expect(isGeneratedApp(body)).toBe(true)
 
   const preview = page.frameLocator('iframe[title="应用预览"]')
-  await expect(preview.locator('canvas')).toBeVisible()
-  await page.waitForTimeout(1_500)
+  await expect(preview.locator('#grid .cell')).toHaveCount(16)
+  const initialBoard = await preview.locator('#grid').innerText()
+  let score = 0
+  for (let turn = 0; turn < 32 && score === 0; turn += 1) {
+    await page.keyboard.press(['ArrowLeft', 'ArrowUp', 'ArrowRight', 'ArrowDown'][turn % 4])
+    score = Number((await preview.locator('#score').innerText()).replace(/[^\d]/g, '')) || 0
+  }
+  expect(await preview.locator('#grid').innerText()).not.toBe(initialBoard)
+  expect(score).toBeGreaterThan(0)
+  await page.getByRole('button', { name: '重新加载预览' }).click()
+  await expect(preview.locator('#score')).toContainText(String(score))
+  await page.reload()
+  await expect(preview.locator('#score')).toContainText(String(score))
+  await expect(page.locator('.preview-error')).toHaveCount(0)
+})
+
+test('a generated expense app adds 20 and 30, deletes, and restores the remainder', async ({ page }) => {
+  await page.goto('/')
+  await page.getByRole('textbox', { name: '应用需求' }).fill('做一个中文费用记录应用：有标为「支出名称」和「金额」的输入框、「添加支出」按钮，每条记录有 aria-label 为「删除」加该记录名称的按钮，总额显示在 id=total 的元素中。添加 20 和 30 后应显示 50，删除 20 后显示 30；用 localStorage 保存并在刷新后恢复。')
+  const [response] = await Promise.all([
+    page.waitForResponse(response => new URL(response.url()).pathname === '/api/generate'
+      && response.request().method() === 'POST', { timeout: 110_000 }),
+    page.getByRole('button', { name: '生成应用', exact: true }).click(),
+  ])
+  const body: unknown = await response.json()
+  expect(response.ok(), `生成接口返回 HTTP ${response.status()}：${JSON.stringify(body).slice(0, 200)}`).toBe(true)
+  expect(isGeneratedApp(body)).toBe(true)
+  const preview = page.frameLocator('iframe[title="应用预览"]')
+  for (const [name, amount] of [['交通', '20'], ['午餐', '30']]) {
+    await preview.getByRole('textbox', { name: /支出名称/ }).fill(name)
+    await preview.getByRole('spinbutton', { name: /金额/ }).fill(amount)
+    await preview.getByRole('button', { name: /添加支出/ }).click()
+  }
+  await expect(preview.locator('#total')).toContainText(/50(?:[.,]00)?/)
+  await preview.getByRole('button', { name: /删除.*交通/ }).click()
+  await expect(preview.locator('#total')).toContainText(/30(?:[.,]00)?/)
+  await page.getByRole('button', { name: '重新加载预览' }).click()
+  await expect(preview.locator('#total')).toContainText(/30(?:[.,]00)?/)
+  await page.reload()
+  await expect(preview.locator('#total')).toContainText(/30(?:[.,]00)?/)
   await expect(page.locator('.preview-error')).toHaveCount(0)
 })

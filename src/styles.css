@@ -304,6 +304,7 @@ textarea::placeholder { color: #617169; }
   color: var(--muted);
 }
 .preview-footer svg { color: var(--green); }
+.preview-keyboard-hint { margin-left: auto; white-space: nowrap; }
 .status-dot { width: 7px; height: 7px; background: #729184; border-radius: 50%; }
 .spinner { animation: spin .85s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }

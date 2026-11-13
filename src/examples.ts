@@ -86,12 +86,24 @@ export const expenseExample: GeneratedApp = {
       const saved = JSON.parse(localStorage.getItem('example-expense-items') || '[]');
       if (Array.isArray(saved)) entries = saved.filter(entry => entry && typeof entry.name === 'string' && Number.isSafeInteger(entry.cents) && entry.cents > 0);
     } catch {}
+    function save() { localStorage.setItem('example-expense-items', JSON.stringify(entries)); }
     function render() {
       expenses.replaceChildren();
       let totalCents = 0;
-      entries.forEach(entry => {
+      entries.forEach((entry, index) => {
         const row = document.createElement('li');
-        row.textContent = entry.name + ' · ¥' + (entry.cents / 100).toFixed(2);
+        const description = document.createElement('span');
+        const remove = document.createElement('button');
+        description.textContent = entry.name + ' · ¥' + (entry.cents / 100).toFixed(2);
+        remove.type = 'button';
+        remove.textContent = '删除';
+        remove.setAttribute('aria-label', '删除' + entry.name);
+        remove.addEventListener('click', () => {
+          entries.splice(index, 1);
+          save();
+          render();
+        });
+        row.append(description, remove);
         expenses.append(row);
         totalCents += entry.cents;
       });
@@ -103,7 +115,7 @@ export const expenseExample: GeneratedApp = {
       const cents = Math.round(amount.valueAsNumber * 100);
       if (!item || !Number.isFinite(cents) || cents < 1) return;
       entries.push({ name: item, cents });
-      localStorage.setItem('example-expense-items', JSON.stringify(entries));
+      save();
       render();
       form.reset();
       nameInput.focus();
