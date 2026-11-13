@@ -4,10 +4,34 @@ import { createGenerateHandler } from '../server/generate.ts'
 import { createRateLimiter } from '../server/rate-limit.ts'
 
 const app = { title: '待办清单', html: '<button>添加</button>', css: '', js: 'void 0' }
-const request = (prompt: string) => new Request('http://localhost/api/generate', {
+const request = (prompt: string, currentApp?: unknown) => new Request('http://localhost/api/generate', {
   method: 'POST',
   headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({ prompt }),
+  body: JSON.stringify({ prompt, currentApp }),
+})
+
+test('revision accepts an existing app larger than the original prompt body limit', async () => {
+  const currentApp = { ...app, css: ' '.repeat(20_000) }
+  const handler = createGenerateHandler(async (prompt, _signal, existing) => {
+    assert.equal(prompt, '增加筛选')
+    assert.deepEqual(existing, currentApp)
+    return app
+  })
+  assert.equal((await handler(request(' 增加筛选 ', currentApp))).status, 200)
+})
+
+test('invalid revision context is rejected before contacting the model', async () => {
+  const handler = createGenerateHandler(async () => assert.fail('model must not be called'))
+  const response = await handler(request('增加筛选', { title: '缺少代码' }))
+  assert.equal(response.status, 400)
+  assert.equal((await response.json()).code, 'INVALID_CURRENT_APP')
+})
+
+test('a revision with invalid JavaScript cannot replace the current version', async () => {
+  const handler = createGenerateHandler(async () => ({ ...app, js: 'const = ;' }))
+  const response = await handler(request('增加筛选', app))
+  assert.equal(response.status, 502)
+  assert.equal((await response.json()).code, 'INVALID_OUTPUT')
 })
 
 test('blank prompts do not call the model', async () => {

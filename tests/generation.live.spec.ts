@@ -17,7 +17,7 @@ test('an anonymous visitor can generate and operate two apps and restore the las
     const body: unknown = await response.json()
     expect(response.ok(), `生成接口返回 HTTP ${response.status()}：${JSON.stringify(body).slice(0, 200)}`).toBe(true)
     expect(isGeneratedApp(body)).toBe(true)
-    await expect(page.getByText('已保存到此浏览器')).toBeVisible()
+    await expect(page.getByText('已保存需求和应用代码')).toBeVisible()
     return body
   }
 

@@ -1,7 +1,8 @@
 import { Script } from 'node:vm'
 import { generatedAppSchema, isGeneratedApp } from '../src/contract.ts'
+import type { GeneratedApp } from '../src/contract.ts'
 import { GenerationError } from './generate.ts'
-import { appInstructions } from './instructions.ts'
+import { appInstructions, modelInput } from './instructions.ts'
 
 type OllamaResponse = { done?: boolean; done_reason?: string; message?: { content?: string } }
 
@@ -26,7 +27,7 @@ function syntaxError(js: string): string | undefined {
 }
 
 export function createOllamaModel(model: string, fetcher = fetch) {
-  async function chat(instructions: string, prompt: string, format: object, signal: AbortSignal): Promise<unknown> {
+  async function chat(instructions: string, prompt: string, format: object, signal: AbortSignal, contextSize = 4096): Promise<unknown> {
     let response: Response
     try {
       response = await fetcher('http://127.0.0.1:11434/api/chat', {
@@ -37,7 +38,7 @@ export function createOllamaModel(model: string, fetcher = fetch) {
           model,
           stream: false,
           format,
-          options: { temperature: 0, num_ctx: 4096, num_predict: 2200, repeat_penalty: 1.1 },
+          options: { temperature: 0, num_ctx: contextSize, num_predict: 2200, repeat_penalty: 1.1 },
           messages: [
             { role: 'system', content: instructions },
             { role: 'user', content: prompt },
@@ -63,8 +64,9 @@ export function createOllamaModel(model: string, fetcher = fetch) {
     }
   }
 
-  return async (prompt: string, signal: AbortSignal): Promise<unknown> => {
-    const app = await chat(localInstructions, prompt, generatedAppSchema, signal)
+  return async (prompt: string, signal: AbortSignal, currentApp?: GeneratedApp): Promise<unknown> => {
+    const { instructions, input } = modelInput(localInstructions, prompt, currentApp)
+    const app = await chat(instructions, input, generatedAppSchema, signal, currentApp ? 8192 : 4096)
     if (!isGeneratedApp(app)) throw new GenerationError('INVALID_OUTPUT', 502)
     const error = syntaxError(app.js)
     if (!error) return app

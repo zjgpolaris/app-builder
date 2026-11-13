@@ -16,11 +16,11 @@ const examples = [
   { title: '支出记录', description: '录入支出，计算总额', icon: Wallet, app: expenseExample, prompt: '生成一个可以录入支出名称和金额、并显示总额的记账页' },
 ]
 
-async function generateApp(prompt: string) {
+async function generateApp(prompt: string, currentApp?: GeneratedApp) {
   const response = await fetch('/api/generate', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ prompt }),
+    body: JSON.stringify({ prompt, currentApp }),
     signal: AbortSignal.timeout(65_000),
   })
   const data = await response.json().catch(() => null)
@@ -34,6 +34,8 @@ async function generateApp(prompt: string) {
 export function Workspace() {
   const [project, setProject] = useState(readProject)
   const [prompt, setPrompt] = useState(project?.prompt ?? '')
+  const [revision, setRevision] = useState('')
+  const [editing, setEditing] = useState(false)
   const [saved, setSaved] = useState(Boolean(project))
   const [pending, setPending] = useState(false)
   const [error, setError] = useState('')
@@ -42,18 +44,26 @@ export function Workspace() {
   const inFlight = useRef(false)
   const promptInput = useRef<HTMLTextAreaElement>(null)
   const previewApp = sample ?? project?.app
+  const draft = editing ? revision : prompt
+  const inputLabel = editing ? '修改需求' : '应用需求'
 
   function showSample(app: GeneratedApp | null) {
     setSample(app)
     setPreviewVersion(version => version + 1)
   }
 
+  function changeMode(nextEditing: boolean) {
+    setEditing(nextEditing)
+    setError('')
+    promptInput.current?.focus()
+  }
+
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     if (inFlight.current) return
-    const brief = prompt.trim()
+    const brief = draft.trim()
     if (!brief) {
-      setError('请先描述你想创建的应用。')
+      setError(editing ? '请先描述你想修改的内容。' : '请先描述你想创建的应用。')
       promptInput.current?.focus()
       return
     }
@@ -62,10 +72,12 @@ export function Workspace() {
     setPending(true)
     setError('')
     try {
-      const app = await generateApp(brief)
-      const nextProject: Project = { version: 1, prompt: brief, app, savedAt: Date.now() }
+      const currentProject = editing ? project : null
+      const app = await generateApp(brief, currentProject?.app)
+      const nextProject: Project = { version: 1, prompt: currentProject?.prompt ?? brief, app, savedAt: Date.now() }
       setSaved(saveProject(nextProject))
       setProject(nextProject)
+      setRevision('')
       showSample(null)
     } catch (failure) {
       if (failure instanceof DOMException && failure.name === 'TimeoutError') {
@@ -100,19 +112,22 @@ export function Workspace() {
           <section className="composer" aria-labelledby="composer-title">
             <div className="section-heading">
               <span className="heading-icon"><Sparkles size={17} /></span>
-              <h2 id="composer-title">应用需求</h2>
+              <h2 id="composer-title">{inputLabel}</h2>
             </div>
+            {editing ? <p className="revision-context">基于「{project?.app.title}」继续修改。<button type="button" className="example-action" disabled={pending} onClick={() => changeMode(false)}>返回新建</button></p> : null}
             <form id="generate-form" onSubmit={submit}>
               <div className="input-card">
                 <textarea
                   ref={promptInput}
-                  aria-label="应用需求"
+                  aria-label={inputLabel}
                   aria-describedby="prompt-count"
-                  value={prompt}
+                  value={draft}
+                  readOnly={pending}
                   maxLength={PROMPT_LIMIT}
-                  placeholder="例如：做一个能添加任务、标记完成的待办清单…"
+                  placeholder={editing ? '例如：加一个筛选器，只显示未完成的任务…' : '例如：做一个能添加任务、标记完成的待办清单…'}
                   onChange={event => {
-                    setPrompt(event.target.value)
+                    if (editing) setRevision(event.target.value)
+                    else setPrompt(event.target.value)
                     if (error) setError('')
                   }}
                   onKeyDown={event => {
@@ -123,10 +138,10 @@ export function Workspace() {
                   }}
                 />
                 <div className="input-footer">
-                  <span id="prompt-count">{prompt.length} / {PROMPT_LIMIT}</span>
+                  <span id="prompt-count">{draft.length} / {PROMPT_LIMIT}</span>
                   <button className="generate-button" type="submit" disabled={pending}>
                     {pending ? <LoaderCircle className="spinner" size={16} /> : <ArrowUp size={16} />}
-                    {pending ? '生成中' : '生成应用'}
+                    {editing ? (pending ? '修改中' : '应用修改') : (pending ? '生成中' : '生成应用')}
                   </button>
                 </div>
               </div>
@@ -134,16 +149,16 @@ export function Workspace() {
                 <div className="request-error" role="alert">
                   <CircleAlert size={16} />
                   <span>{error}</span>
-                  {prompt.trim() ? <button type="submit">重试</button> : null}
+                  {draft.trim() ? <button type="submit">重试</button> : null}
                 </div>
               ) : null}
             </form>
 
-            <div className="examples">
+            {!editing ? <div className="examples">
               <h3>从示例开始</h3>
               {examples.map(({ title, description, prompt: examplePrompt, icon: Icon, app }) => (
                 <div className="example" key={title}>
-                  <button type="button" className="example-prompt" aria-label={`填入${title}需求`} onClick={() => {
+                  <button type="button" className="example-prompt" aria-label={`填入${title}需求`} disabled={pending} onClick={() => {
                     setPrompt(examplePrompt)
                     setError('')
                     promptInput.current?.focus()
@@ -156,7 +171,7 @@ export function Workspace() {
                   </button>
                 </div>
               ))}
-            </div>
+            </div> : null}
           </section>
 
           <section className="preview-panel" aria-labelledby="preview-title">
@@ -166,6 +181,7 @@ export function Workspace() {
                 <h2 id="preview-title">应用预览</h2>
               </div>
               {previewApp ? <div className="preview-actions">
+                {project && !sample && !editing ? <button className="example-action" type="button" disabled={pending} onClick={() => changeMode(true)}>继续修改</button> : null}
                 {sample ? <button className="example-action" type="button" onClick={() => showSample(null)}>
                   {project ? '返回项目' : '退出示例'}
                 </button> : null}
@@ -193,9 +209,9 @@ export function Workspace() {
               </div>
             </div>
             <div className="preview-footer" role="status">
-              {pending ? <><LoaderCircle size={14} className="spinner" />正在生成新结果</> :
+              {pending ? <><LoaderCircle size={14} className="spinner" />{editing ? '正在修改当前应用' : '正在生成新结果'}</> :
                 sample ? <><span className="status-dot" />内置示例 · 无需 API 密钥</> :
-                project ? (saved ? <><Check size={15} />已保存到此浏览器</> :
+                project ? (saved ? <><Check size={15} />已保存需求和应用代码</> :
                   <><CircleAlert size={15} />当前结果未保存，刷新后可能丢失</>) :
                   <><span className="status-dot" />生成的项目将保存在此浏览器</>}
             </div>

@@ -23,7 +23,7 @@ test('generation renders an isolated interactive app and restores it after refre
   await page.goto('/')
   await page.getByRole('textbox', { name: '应用需求' }).fill(prompt)
   await page.getByRole('button', { name: '生成应用' }).click()
-  await expect(page.getByText('已保存到此浏览器')).toBeVisible()
+  await expect(page.getByText('已保存需求和应用代码')).toBeVisible()
   const preview = page.frameLocator('iframe[title="应用预览"]')
   const addTask = preview.getByRole('button', { name: '新增任务' })
   await addTask.press('Enter')
@@ -56,7 +56,7 @@ test('an in-flight request blocks duplicates and a failed replacement can be ret
   await input.press('Control+Enter')
   expect(calls).toBe(1)
   releaseResponse()
-  await expect(page.getByText('已保存到此浏览器')).toBeVisible()
+  await expect(page.getByText('已保存需求和应用代码')).toBeVisible()
   await input.fill('生成一个计算支出总额的记账页')
   await page.getByRole('button', { name: '生成应用' }).click()
   await expect(page.getByRole('alert')).toContainText('服务暂时不可用')
@@ -78,13 +78,60 @@ test('a failed replacement leaves the last saved app available after reload', as
   const input = page.getByRole('textbox', { name: '应用需求' })
   await input.fill(prompt)
   await page.getByRole('button', { name: '生成应用' }).click()
-  await expect(page.getByText('已保存到此浏览器')).toBeVisible()
+  await expect(page.getByText('已保存需求和应用代码')).toBeVisible()
   await input.fill('做一个日历')
   await page.getByRole('button', { name: '生成应用' }).click()
   await expect(page.getByRole('alert')).toContainText('服务暂时不可用')
   await page.reload()
   await expect(input).toHaveValue(prompt)
   await expect(page.frameLocator('iframe').getByRole('button', { name: '新增任务' })).toBeVisible()
+})
+
+test('revision retries with the same app, then builds on the latest saved version', async ({ page }) => {
+  const requests: unknown[] = []
+  const revised = { ...app, title: '带筛选的待办', html: `${app.html}<button>筛选</button>` }
+  const final = { ...revised, title: '带计数的待办', html: `${revised.html}<p>共 0 项</p>` }
+  let finishRevision!: () => void
+  const revisionPending = new Promise<void>(resolve => { finishRevision = resolve })
+  await page.route('**/api/generate', async route => {
+    requests.push(route.request().postDataJSON())
+    if (requests.length === 2) {
+      await revisionPending
+      await route.fulfill({ status: 502, json: { message: '服务暂时不可用' } })
+      return
+    }
+    await route.fulfill({ json: requests.length === 1 ? app : requests.length === 3 ? revised : final })
+  })
+  await page.goto('/')
+  await page.getByRole('textbox', { name: '应用需求' }).fill(prompt)
+  await page.getByRole('button', { name: '生成应用' }).click()
+  await page.getByRole('button', { name: '继续修改' }).click()
+  const edit = page.getByRole('textbox', { name: '修改需求' })
+  const preview = page.frameLocator('iframe[title="应用预览"]')
+  await edit.fill('加一个筛选按钮')
+  await page.getByRole('button', { name: '应用修改' }).click()
+  await expect(page.getByRole('button', { name: '修改中' })).toBeDisabled()
+  await preview.getByRole('button', { name: '新增任务' }).click()
+  await expect(preview.locator('#result')).toContainText('任务已添加')
+  finishRevision()
+  await expect(page.getByRole('alert')).toContainText('服务暂时不可用')
+  await expect(edit).toHaveValue('加一个筛选按钮')
+  await expect(preview.locator('#result')).toContainText('任务已添加')
+  await page.getByRole('button', { name: '重试' }).click()
+  await expect(preview.getByRole('button', { name: '筛选' })).toBeVisible()
+  await expect(edit).toHaveValue('')
+  await edit.fill('加一个任务计数')
+  await page.getByRole('button', { name: '应用修改' }).click()
+  await expect(preview.getByText('共 0 项')).toBeVisible()
+  expect(requests).toEqual([
+    { prompt },
+    { prompt: '加一个筛选按钮', currentApp: app },
+    { prompt: '加一个筛选按钮', currentApp: app },
+    { prompt: '加一个任务计数', currentApp: revised },
+  ])
+  await page.reload()
+  await expect(preview.getByText('共 0 项')).toBeVisible()
+  await expect(page.getByRole('textbox', { name: '应用需求' })).toHaveValue(prompt)
 })
 
 test('failed storage still leaves the preview usable', async ({ page }) => {
@@ -133,7 +180,7 @@ test('built-in examples work offline and keep the generated project intact', asy
   const input = page.getByRole('textbox', { name: '应用需求' })
   await input.fill(prompt)
   await page.getByRole('button', { name: '生成应用' }).click()
-  await expect(page.getByText('已保存到此浏览器')).toBeVisible()
+  await expect(page.getByText('已保存需求和应用代码')).toBeVisible()
   await input.fill('另一个应用的需求')
 
   const preview = page.frameLocator('iframe[title="应用预览"]')

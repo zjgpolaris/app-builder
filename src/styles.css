@@ -85,6 +85,16 @@ button:focus-visible, textarea:focus-visible {
 .composer { padding: 19px; }
 .section-heading { gap: 10px; min-height: 34px; }
 .section-heading h2 { margin: 0; font-size: 16px; font-weight: 700; }
+.revision-context {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 10px;
+  margin: 10px 0 0;
+  color: var(--muted);
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
 .heading-icon, .example-icon {
   width: 34px;
   height: 34px;

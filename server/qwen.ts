@@ -1,5 +1,6 @@
 import { GenerationError } from './generate.ts'
-import { appInstructions } from './instructions.ts'
+import { appInstructions, modelInput } from './instructions.ts'
+import type { GeneratedApp } from '../src/contract.ts'
 
 type DashScopeEnv = Record<string, string | undefined>
 type Completion = {
@@ -23,9 +24,10 @@ export function configuredQwenModel(env: DashScopeEnv, fetcher = fetch) {
   const model = env.DASHSCOPE_MODEL?.trim() || 'qwen-plus'
   if (!apiKey && !baseUrl) return undefined
 
-  return async (prompt: string, signal: AbortSignal): Promise<unknown> => {
+  return async (prompt: string, signal: AbortSignal, currentApp?: GeneratedApp): Promise<unknown> => {
     if (!apiKey) throw new GenerationError('NOT_CONFIGURED', 503)
     if (!baseUrl) throw new GenerationError('INVALID_MODEL_CONFIG', 503)
+    const { instructions, input } = modelInput(appInstructions, prompt, currentApp)
 
     const response = await fetcher(chatEndpoint(baseUrl), {
       method: 'POST',
@@ -35,8 +37,8 @@ export function configuredQwenModel(env: DashScopeEnv, fetcher = fetch) {
       body: JSON.stringify({
         model,
         messages: [
-          { role: 'system', content: `${appInstructions}\nReturn a JSON object with exactly these string fields: title, html, css, js.` },
-          { role: 'user', content: prompt },
+          { role: 'system', content: `${instructions}\nReturn a JSON object with exactly these string fields: title, html, css, js.` },
+          { role: 'user', content: input },
         ],
         enable_thinking: false,
         max_tokens: 8_000,

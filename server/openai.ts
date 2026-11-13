@@ -1,6 +1,7 @@
 import { generatedAppSchema } from '../src/contract.ts'
+import type { GeneratedApp } from '../src/contract.ts'
 import { GenerationError } from './generate.ts'
-import { appInstructions } from './instructions.ts'
+import { appInstructions, modelInput } from './instructions.ts'
 
 type OutputPart = { type?: string; text?: string }
 type ProviderResponse = { status?: string; output?: { type?: string; content?: OutputPart[] }[] }
@@ -11,7 +12,7 @@ export function createOpenAIModel({ apiKey, model, gateway = false }: ModelOptio
   const modelName = model?.trim() || 'gpt-5-mini'
   const modelId = gateway && !modelName.includes('/') ? `openai/${modelName}` : modelName
   const endpoint = gateway ? 'https://ai-gateway.vercel.sh/v1/responses' : 'https://api.openai.com/v1/responses'
-  return async (prompt: string, signal: AbortSignal): Promise<unknown> => {
+  return async (prompt: string, signal: AbortSignal, currentApp?: GeneratedApp): Promise<unknown> => {
     if (!apiKey?.trim()) throw new GenerationError('NOT_CONFIGURED', 503)
 
     const response = await fetcher(endpoint, {
@@ -20,8 +21,7 @@ export function createOpenAIModel({ apiKey, model, gateway = false }: ModelOptio
       headers: { Authorization: `Bearer ${apiKey.trim()}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
         model: modelId,
-        instructions: appInstructions,
-        input: prompt,
+        ...modelInput(appInstructions, prompt, currentApp),
         store: false,
         max_output_tokens: 8_000,
         reasoning: !gateway && modelId === 'gpt-5-mini' ? { effort: 'minimal' } : undefined,

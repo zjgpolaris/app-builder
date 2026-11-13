@@ -5,11 +5,11 @@ import route from '../api/generate.ts'
 const app = { title: '记账页', html: '<main>记账页</main>', css: '', js: '' }
 const baseUrl = 'https://test-workspace.cn-beijing.maas.aliyuncs.com/compatible-mode/v1'
 
-function request(ip: string) {
+function request(ip: string, currentApp?: typeof app) {
   return new Request('http://localhost/api/generate', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'x-forwarded-for': ip },
-    body: JSON.stringify({ prompt: '制作记账页' }),
+    body: JSON.stringify({ prompt: currentApp ? '添加分类' : '制作记账页', currentApp }),
   })
 }
 
@@ -35,6 +35,12 @@ test('production routes configured generation to Qwen and validates its JSON', a
   assert.match(body.messages[0].content, /JSON/)
   assert.deepEqual(body.messages[1], { role: 'user', content: '制作记账页' })
 
+  const revision = await route.fetch(request('192.0.2.6', app))
+  assert.equal(revision.status, 200)
+  const revisionOptions = (upstream.mock.calls[1].arguments as unknown as [URL, RequestInit])[1]
+  const revisionBody = JSON.parse(String(revisionOptions.body))
+  assert.deepEqual(JSON.parse(revisionBody.messages[1].content), { change: '添加分类', currentApp: app })
+
   upstream.mock.mockImplementation(async () => Response.json({
     choices: [{ finish_reason: 'length', message: { content: JSON.stringify(app) } }],
   }))
@@ -46,17 +52,17 @@ test('production routes configured generation to Qwen and validates its JSON', a
   const limited = await route.fetch(request('192.0.2.5'))
   assert.equal(limited.status, 429)
   assert.equal((await limited.json()).code, 'RATE_LIMITED')
-  assert.equal(upstream.mock.callCount(), 3)
+  assert.equal(upstream.mock.callCount(), 4)
 
   process.env.DASHSCOPE_BASE_URL = 'https://maas.aliyuncs.com.example.com/compatible-mode/v1'
   const invalidEndpoint = await route.fetch(request('192.0.2.5'))
   assert.equal(invalidEndpoint.status, 503)
   assert.equal((await invalidEndpoint.json()).code, 'INVALID_MODEL_CONFIG')
-  assert.equal(upstream.mock.callCount(), 3)
+  assert.equal(upstream.mock.callCount(), 4)
 
   delete process.env.DASHSCOPE_API_KEY
   const missingKey = await route.fetch(request('192.0.2.5'))
   assert.equal(missingKey.status, 503)
   assert.equal((await missingKey.json()).code, 'NOT_CONFIGURED')
-  assert.equal(upstream.mock.callCount(), 3)
+  assert.equal(upstream.mock.callCount(), 4)
 })
