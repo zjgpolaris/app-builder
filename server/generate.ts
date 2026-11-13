@@ -8,6 +8,7 @@ const messages = {
   RATE_LIMITED: '生成请求太频繁，请稍后重试。',
   TIMEOUT: '生成时间超过限制，请简化需求或重试。',
   NOT_CONFIGURED: '生成服务尚未配置 API 密钥。',
+  INVALID_MODEL_CONFIG: '生成服务的模型地址配置有误。',
   LOCAL_MODEL_UNAVAILABLE: '无法连接本地模型，请确认 Ollama 正在运行。',
   LOCAL_MODEL_MISSING: 'Ollama 中没有配置的模型，请先下载该模型。',
   INVALID_OUTPUT: '模型未返回可用的应用，请尝试调整需求。',

@@ -5,15 +5,16 @@ import type { Connect, Plugin } from 'vite'
 import { createGenerateHandler } from './server/generate.ts'
 import { createOllamaModel } from './server/ollama.ts'
 import { createOpenAIModel } from './server/openai.ts'
+import { configuredQwenModel } from './server/qwen.ts'
 import { createRateLimiter } from './server/rate-limit.ts'
 
 function localGeneration(env: Record<string, string>): Plugin {
   const localModel = env.OLLAMA_MODEL?.trim()
-  const model = localModel ? createOllamaModel(localModel) : createOpenAIModel({
+  const fallbackModel = localModel ? createOllamaModel(localModel) : createOpenAIModel({
     apiKey: env.OPENAI_API_KEY,
     model: env.OPENAI_MODEL,
   })
-  const generate = createGenerateHandler(model, { allow: createRateLimiter(6, 60_000) })
+  const generate = createGenerateHandler(configuredQwenModel(env) ?? fallbackModel, { allow: createRateLimiter(6, 60_000) })
 
   const register = ({ middlewares }: { middlewares: Connect.Server }) => {
     middlewares.use('/api/generate', async (incoming, outgoing) => {
@@ -38,5 +39,5 @@ function localGeneration(env: Record<string, string>): Plugin {
 }
 
 export default defineConfig(({ mode }) => ({
-  plugins: [react(), localGeneration(loadEnv(mode, process.cwd(), ['OPENAI_', 'OLLAMA_MODEL']))],
+  plugins: [react(), localGeneration(loadEnv(mode, process.cwd(), ['OPENAI_', 'OLLAMA_MODEL', 'DASHSCOPE_']))],
 }))
