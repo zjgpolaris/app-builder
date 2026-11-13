@@ -1,8 +1,8 @@
 import {
   ArrowRight, ArrowUp, Check, CircleAlert, ClipboardList, Globe2, Layers3,
-  LoaderCircle, Monitor, RotateCcw, Sparkles, Wallet,
+  Expand, LoaderCircle, Minimize, Monitor, RotateCcw, Sparkles, Wallet,
 } from 'lucide-react'
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
 import { isGeneratedApp, PROMPT_LIMIT } from './contract.ts'
 import type { GeneratedApp } from './contract.ts'
@@ -41,11 +41,44 @@ export function Workspace() {
   const [error, setError] = useState('')
   const [sample, setSample] = useState<GeneratedApp | null>(null)
   const [previewVersion, setPreviewVersion] = useState(0)
+  const [fullscreen, setFullscreen] = useState(false)
+  const [expandedFallback, setExpandedFallback] = useState(false)
   const inFlight = useRef(false)
   const promptInput = useRef<HTMLTextAreaElement>(null)
+  const previewPanel = useRef<HTMLElement>(null)
   const previewApp = sample ?? project?.app
   const draft = editing ? revision : prompt
   const inputLabel = editing ? '修改需求' : '应用需求'
+
+  useEffect(() => {
+    const syncFullscreen = () => setFullscreen(document.fullscreenElement === previewPanel.current)
+    const onEscape = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return
+      setExpandedFallback(false)
+      if (document.fullscreenElement === previewPanel.current) void document.exitFullscreen()
+    }
+    document.addEventListener('fullscreenchange', syncFullscreen)
+    document.addEventListener('keydown', onEscape)
+    return () => {
+      document.removeEventListener('fullscreenchange', syncFullscreen)
+      document.removeEventListener('keydown', onEscape)
+    }
+  }, [])
+
+  async function toggleFullscreen() {
+    if (fullscreen) {
+      await document.exitFullscreen()
+    } else if (expandedFallback) {
+      setExpandedFallback(false)
+    } else {
+      try {
+        if (!previewPanel.current?.requestFullscreen) throw new Error('Fullscreen API unavailable')
+        await previewPanel.current.requestFullscreen()
+      } catch {
+        setExpandedFallback(true)
+      }
+    }
+  }
 
   function showSample(app: GeneratedApp | null) {
     setSample(app)
@@ -182,7 +215,7 @@ export function Workspace() {
             </div> : null}
           </section>
 
-          <section className="preview-panel" aria-labelledby="preview-title">
+          <section ref={previewPanel} className={`preview-panel${expandedFallback ? ' is-expanded' : ''}`} aria-labelledby="preview-title">
             <header className="preview-heading">
               <div className="section-heading">
                 <span className="heading-icon"><Monitor size={17} /></span>
@@ -196,6 +229,10 @@ export function Workspace() {
                 <button className="icon-button" title="重新加载预览" aria-label="重新加载预览" type="button"
                   onClick={() => setPreviewVersion(version => version + 1)}>
                   <RotateCcw size={16} />
+                </button>
+                <button className="icon-button" title={fullscreen || expandedFallback ? '退出全屏' : '全屏预览'}
+                  aria-label={fullscreen || expandedFallback ? '退出全屏' : '全屏预览'} type="button" onClick={toggleFullscreen}>
+                  {fullscreen || expandedFallback ? <Minimize size={16} /> : <Expand size={16} />}
                 </button>
               </div> : null}
             </header>

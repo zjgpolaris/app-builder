@@ -218,6 +218,33 @@ test('the workbench fits a phone viewport', async ({ page }) => {
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(375)
 })
 
+test('preview is larger by default and keeps its state through fullscreen', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 })
+  await page.goto('/')
+  await page.getByRole('button', { name: '试用支出记录' }).click()
+  const surface = page.locator('.preview-surface')
+  expect((await surface.boundingBox())!.height).toBeGreaterThanOrEqual(520)
+  const preview = page.frameLocator('iframe[title="应用预览"]')
+  await preview.getByRole('textbox', { name: '支出名称' }).fill('交通')
+  await preview.getByRole('spinbutton', { name: '金额' }).fill('20')
+  await preview.getByRole('button', { name: '添加支出' }).click()
+  await preview.locator('body').evaluate(body => { (body as HTMLElement).dataset.sessionMarker = 'kept' })
+  await page.getByRole('button', { name: '全屏预览' }).click()
+  await expect.poll(() => page.evaluate(() => document.fullscreenElement?.classList.contains('preview-panel'))).toBe(true)
+  await expect(preview.locator('#total')).toHaveText('20.00')
+  await expect(preview.locator('body')).toHaveAttribute('data-session-marker', 'kept')
+  await page.keyboard.press('Escape')
+  await expect.poll(() => page.evaluate(() => document.fullscreenElement)).toBeNull()
+  await expect(preview.locator('#total')).toHaveText('20.00')
+  await expect(preview.locator('body')).toHaveAttribute('data-session-marker', 'kept')
+  await page.setViewportSize({ width: 375, height: 812 })
+  await page.getByRole('button', { name: '全屏预览' }).click()
+  await expect.poll(() => page.evaluate(() => document.fullscreenElement?.classList.contains('preview-panel'))).toBe(true)
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(375)
+  await page.getByRole('button', { name: '退出全屏' }).click()
+  await expect(preview.locator('#total')).toHaveText('20.00')
+})
+
 test('built-in examples work offline and keep the generated project intact', async ({ page }) => {
   let calls = 0
   await page.route('**/api/generate', async route => {
