@@ -1,9 +1,12 @@
 import { useLayoutEffect, useRef, useState } from 'react'
 import type { GeneratedApp } from './contract.ts'
+import { applyPreviewOperation, readPreviewData } from './preview-data.ts'
+import type { PreviewOperation } from './preview-data.ts'
 
-function previewDocument(app: GeneratedApp) {
+function previewDocument(app: GeneratedApp, snapshot: Record<string, string>) {
   // The JSON literal must stay inside this script regardless of model output.
   const payload = JSON.stringify(app).replaceAll('<', '\\u003c')
+  const stored = JSON.stringify(Object.entries(snapshot)).replaceAll('<', '\\u003c')
   return `<!doctype html>
 <html lang="zh-CN">
 <head>
@@ -24,6 +27,26 @@ function previewDocument(app: GeneratedApp) {
   const report = value => parent.postMessage({ type: 'app-builder:preview-error', message: summarize(value) }, '*');
   window.addEventListener('error', event => report(event.error || event.message));
   window.addEventListener('unhandledrejection', event => report(event.reason));
+  const entries = new Map(${stored});
+  const storage = {
+    get length() { return entries.size; },
+    key(index) { return [...entries.keys()][Number(index)] ?? null; },
+    getItem(key) { return entries.get(String(key)) ?? null; },
+    setItem(key, value) {
+      key = String(key); value = String(value);
+      entries.set(key, value);
+      parent.postMessage({ type: 'app-builder:preview-storage', operation: 'set', key, value }, '*');
+    },
+    removeItem(key) {
+      key = String(key); entries.delete(key);
+      parent.postMessage({ type: 'app-builder:preview-storage', operation: 'remove', key }, '*');
+    },
+    clear() {
+      entries.clear();
+      parent.postMessage({ type: 'app-builder:preview-storage', operation: 'clear' }, '*');
+    }
+  };
+  Object.defineProperty(window, 'localStorage', { value: storage, configurable: false });
   const app = ${payload};
   document.title = app.title;
   const style = document.createElement('style');
@@ -42,22 +65,26 @@ function previewDocument(app: GeneratedApp) {
 </html>`
 }
 
-export function Preview({ app, onRepair }: { app: GeneratedApp; onRepair?: (message: string) => void }) {
+export function Preview({ app, namespace, onRepair }: { app: GeneratedApp; namespace: string; onRepair?: (message: string) => void }) {
   const frame = useRef<HTMLIFrameElement>(null)
   const [failure, setFailure] = useState('')
-  const [document] = useState(() => previewDocument(app))
+  const [document] = useState(() => previewDocument(app, readPreviewData(namespace)))
 
   useLayoutEffect(() => {
     const onMessage = (event: MessageEvent) => {
-      if (event.source === frame.current?.contentWindow && event.origin === 'null'
-        && event.data?.type === 'app-builder:preview-error') {
+      if (event.source !== frame.current?.contentWindow || event.origin !== 'null') return
+      if (event.data?.type === 'app-builder:preview-storage') {
+        const { operation, key, value } = event.data
+        applyPreviewOperation(namespace, { operation, key, value } as PreviewOperation)
+      }
+      if (event.data?.type === 'app-builder:preview-error') {
         const message = typeof event.data.message === 'string' ? event.data.message.slice(0, 240) : '未知错误'
         setFailure(message)
       }
     }
     window.addEventListener('message', onMessage)
     return () => window.removeEventListener('message', onMessage)
-  }, [])
+  }, [namespace])
 
   return (
     <>

@@ -24,19 +24,35 @@ export const todoExample: GeneratedApp = {
     const form = document.querySelector('form');
     const nameInput = document.querySelector('#task-name');
     const tasks = document.querySelector('ul');
+    let items = [];
+    try {
+      const saved = JSON.parse(localStorage.getItem('example-todo-items') || '[]');
+      if (Array.isArray(saved)) items = saved.filter(item => item && typeof item.name === 'string' && typeof item.done === 'boolean');
+    } catch {}
+    function save() { localStorage.setItem('example-todo-items', JSON.stringify(items)); }
+    function render() {
+      tasks.replaceChildren();
+      items.forEach((item, index) => {
+        const row = document.createElement('li');
+        const label = document.createElement('label');
+        const checkbox = document.createElement('input');
+        const text = document.createElement('span');
+        checkbox.type = 'checkbox';
+        checkbox.checked = item.done;
+        checkbox.addEventListener('change', () => { items[index].done = checkbox.checked; save(); });
+        text.textContent = item.name;
+        label.append(checkbox, text);
+        row.append(label);
+        tasks.append(row);
+      });
+    }
     function addEntry() {
       if (!form.reportValidity()) return;
       const task = nameInput.value.trim();
       if (!task) return;
-      const row = document.createElement('li');
-      const label = document.createElement('label');
-      const checkbox = document.createElement('input');
-      const text = document.createElement('span');
-      checkbox.type = 'checkbox';
-      text.textContent = task;
-      label.append(checkbox, text);
-      row.append(label);
-      tasks.append(row);
+      items.push({ name: task, done: false });
+      save();
+      render();
       form.reset();
       nameInput.focus();
     }
@@ -47,6 +63,7 @@ export const todoExample: GeneratedApp = {
         addEntry();
       }
     });
+    render();
   `,
 }
 
@@ -64,17 +81,30 @@ export const expenseExample: GeneratedApp = {
     const amount = document.querySelector('#amount');
     const expenses = document.querySelector('ul');
     const total = document.querySelector('#total');
-    let totalCents = 0;
+    let entries = [];
+    try {
+      const saved = JSON.parse(localStorage.getItem('example-expense-items') || '[]');
+      if (Array.isArray(saved)) entries = saved.filter(entry => entry && typeof entry.name === 'string' && Number.isSafeInteger(entry.cents) && entry.cents > 0);
+    } catch {}
+    function render() {
+      expenses.replaceChildren();
+      let totalCents = 0;
+      entries.forEach(entry => {
+        const row = document.createElement('li');
+        row.textContent = entry.name + ' · ¥' + (entry.cents / 100).toFixed(2);
+        expenses.append(row);
+        totalCents += entry.cents;
+      });
+      total.textContent = (totalCents / 100).toFixed(2);
+    }
     function addEntry() {
       if (!form.reportValidity()) return;
       const item = nameInput.value.trim();
       const cents = Math.round(amount.valueAsNumber * 100);
       if (!item || !Number.isFinite(cents) || cents < 1) return;
-      const row = document.createElement('li');
-      row.textContent = item + ' · ¥' + (cents / 100).toFixed(2);
-      expenses.append(row);
-      totalCents += cents;
-      total.textContent = (totalCents / 100).toFixed(2);
+      entries.push({ name: item, cents });
+      localStorage.setItem('example-expense-items', JSON.stringify(entries));
+      render();
       form.reset();
       nameInput.focus();
     }
@@ -85,5 +115,6 @@ export const expenseExample: GeneratedApp = {
         addEntry();
       }
     });
+    render();
   `,
 }

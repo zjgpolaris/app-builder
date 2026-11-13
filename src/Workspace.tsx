@@ -8,7 +8,7 @@ import { isGeneratedApp, PROMPT_LIMIT } from './contract.ts'
 import type { GeneratedApp } from './contract.ts'
 import { expenseExample, todoExample } from './examples.ts'
 import { Preview } from './Preview.tsx'
-import { readProject, saveProject } from './project.ts'
+import { createProject, readProject, saveProject } from './project.ts'
 import type { Project } from './project.ts'
 
 const examples = [
@@ -82,7 +82,7 @@ export function Workspace() {
     try {
       const currentProject = editing ? project : null
       const app = await generateApp(brief, currentProject?.app)
-      const nextProject: Project = { version: 1, prompt: currentProject?.prompt ?? brief, app, savedAt: Date.now() }
+      const nextProject: Project = createProject(currentProject?.prompt ?? brief, app, currentProject ?? undefined)
       setSaved(saveProject(nextProject))
       setProject(nextProject)
       setRevision('')
@@ -205,7 +205,8 @@ export function Workspace() {
                 <span className="browser-title"><Globe2 size={13} /> {previewApp?.title ?? '应用预览'}</span>
               </div>
               <div className="preview-surface" aria-busy={pending}>
-                {previewApp ? <Preview key={previewVersion} app={previewApp}
+                {previewApp ? <Preview key={`${sample ? sample.title : project?.id}-${previewVersion}`} app={previewApp}
+                  namespace={sample ? `example-${sample === todoExample ? 'todo' : 'expense'}` : project!.id}
                   onRepair={project && !sample ? repairPreview : undefined} /> : (
                   <div className="preview-empty">
                     <div className="preview-glyph" aria-hidden="true">

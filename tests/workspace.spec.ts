@@ -8,8 +8,7 @@ const app = {
   js: `document.querySelector('#add').onclick = () => {
     let blocked = 0;
     try { void parent.document.body; } catch { blocked++; }
-    try { void localStorage.length; } catch { blocked++; }
-    document.querySelector('#result').textContent = blocked === 2 ? '任务已添加，宿主访问被隔离' : '任务已添加，隔离失败';
+    document.querySelector('#result').textContent = blocked === 1 ? '任务已添加，宿主访问被隔离' : '任务已添加，隔离失败';
   }`,
 }
 
@@ -32,6 +31,52 @@ test('generation renders an isolated interactive app and restores it after refre
   await expect(page.getByRole('textbox', { name: '应用需求' })).toHaveValue(prompt)
   await expect(preview.getByRole('button', { name: '新增任务' })).toBeVisible()
   expect(calls).toBe(1)
+})
+
+test('preview storage persists across reload and remains scoped to its project', async ({ page }) => {
+  const persistent = {
+    title: '持久待办', html: '<button id="add">新增</button><output id="value"></output>', css: '',
+    js: `const output = document.querySelector('#value');
+      output.textContent = localStorage.getItem('task') || '空';
+      document.querySelector('#add').onclick = () => { localStorage.setItem('task', '准备笔试'); output.textContent = localStorage.getItem('task'); };`,
+  }
+  let count = 0
+  await page.route('**/api/generate', route => route.fulfill({ json: { ...persistent, title: count++ === 2 ? '新项目' : '持久待办' } }))
+  await page.goto('/')
+  await page.getByRole('textbox', { name: '应用需求' }).fill(prompt)
+  await page.getByRole('button', { name: '生成应用' }).click()
+  await expect(page.getByText('已保存需求和应用代码')).toBeVisible()
+  const preview = page.frameLocator('iframe[title="应用预览"]')
+  await expect(preview.locator('#value')).toHaveText('空')
+  await preview.getByRole('button', { name: '新增' }).click()
+  await expect(preview.locator('#value')).toHaveText('准备笔试')
+  await page.getByRole('button', { name: '重新加载预览' }).click()
+  await expect(preview.locator('#value')).toHaveText('准备笔试')
+  await page.reload()
+  await expect(preview.locator('#value')).toHaveText('准备笔试')
+  await page.getByRole('button', { name: '继续修改' }).click()
+  await page.getByRole('textbox', { name: '修改需求' }).fill('调整标题')
+  await page.getByRole('button', { name: '应用修改' }).click()
+  await expect(preview.locator('#value')).toHaveText('准备笔试')
+  await page.getByRole('button', { name: '返回新建' }).click()
+  await page.getByRole('textbox', { name: '应用需求' }).fill('新项目')
+  await page.getByRole('button', { name: '生成应用' }).click()
+  await expect(preview.locator('#value')).toHaveText('空')
+})
+
+test('preview cannot read host project record or another namespace', async ({ page }) => {
+  const probing = {
+    title: '隔离检查', html: '<output id="result"></output>', css: '',
+    js: `let parentBlocked = false;
+      try { void parent.document.body; } catch { parentBlocked = true; }
+      document.querySelector('#result').textContent = parentBlocked && !localStorage.getItem('app-builder:latest-project') && !localStorage.getItem('other-task') ? '隔离通过' : '隔离失败';`,
+  }
+  await page.route('**/api/generate', route => route.fulfill({ json: probing }))
+  await page.goto('/')
+  await page.evaluate(() => localStorage.setItem('app-builder:preview-data:example-todo', JSON.stringify({ version: 1, data: { 'other-task': 'secret' } })))
+  await page.getByRole('textbox', { name: '应用需求' }).fill(prompt)
+  await page.getByRole('button', { name: '生成应用' }).click()
+  await expect(page.frameLocator('iframe').locator('#result')).toHaveText('隔离通过')
 })
 
 test('an in-flight request blocks duplicates and a failed replacement can be retried', async ({ page }) => {
@@ -192,19 +237,28 @@ test('built-in examples work offline and keep the generated project intact', asy
   await preview.getByRole('textbox', { name: '任务名称' }).fill('准备笔试')
   await preview.getByRole('button', { name: '添加任务' }).click()
   await preview.getByRole('checkbox', { name: '准备笔试' }).check()
+  await page.getByRole('button', { name: '重新加载预览' }).click()
+  await expect(preview.getByRole('checkbox', { name: '准备笔试' })).toBeChecked()
 
   await page.getByRole('button', { name: '试用支出记录' }).click()
+  await expect(preview.getByRole('checkbox', { name: '准备笔试' })).toHaveCount(0)
   for (const [name, amount] of [['交通', '12'], ['咖啡', '8']]) {
     await preview.getByRole('textbox', { name: '支出名称' }).fill(name)
     await preview.getByRole('spinbutton', { name: '金额' }).fill(amount)
     await preview.getByRole('button', { name: '添加支出' }).click()
   }
   await expect(preview.locator('#total')).toHaveText('20.00')
+  await page.getByRole('button', { name: '重新加载预览' }).click()
+  await expect(preview.locator('#total')).toHaveText('20.00')
+  await page.getByRole('button', { name: '试用待办清单' }).click()
+  await expect(preview.getByRole('checkbox', { name: '准备笔试' })).toBeChecked()
   await expect(input).toHaveValue('另一个应用的需求')
   await page.getByRole('button', { name: '返回项目' }).click()
   await expect(preview.getByRole('button', { name: '新增任务' })).toBeVisible()
   await page.reload()
   await expect(input).toHaveValue(prompt)
   await expect(preview.getByRole('button', { name: '新增任务' })).toBeVisible()
+  await page.getByRole('button', { name: '试用支出记录' }).click()
+  await expect(preview.locator('#total')).toHaveText('20.00')
   expect(calls).toBe(1)
 })

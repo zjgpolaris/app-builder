@@ -2,7 +2,7 @@ import { expect, test } from '@playwright/test'
 import { isGeneratedApp } from '../src/contract.ts'
 
 test('an anonymous visitor can generate and operate two apps and restore the last project', async ({ page }) => {
-  const expensePrompt = '生成一个中文单页记账应用。用可访问标签「支出名称」和「金额」标记两个输入框，金额输入使用 number 类型。点击「添加支出」后展示每条记录，并显示包含「总额」和金额数字的文字。无需联网。'
+  const expensePrompt = '生成一个中文单页记账应用。用可访问标签「支出名称」和「金额」标记两个输入框，金额输入使用 number 类型。点击「添加支出」后展示每条记录，并显示包含「总额」和金额数字的文字。每次录入后用 localStorage 保存支出数组，页面重新加载时恢复记录及总额；解析损坏数据时回退为空数组。无需联网。'
   await page.goto('/')
   const input = page.getByRole('textbox', { name: '应用需求' })
   const preview = page.frameLocator('iframe[title="应用预览"]')
@@ -21,12 +21,15 @@ test('an anonymous visitor can generate and operate two apps and restore the las
     return body
   }
 
-  const todo = await generate('制作中文待办清单。输入框 aria-label=任务名称，添加任务按钮。点击按钮在 ul 新增 li；每项是一个 label，内含复选框和用户输入的任务名称。')
+  const todoPrompt = '制作中文待办清单。输入框 aria-label=任务名称，添加任务按钮。点击按钮在 ul 新增 li；每项是一个 label，内含复选框和用户输入的任务名称。新增和勾选后用 localStorage 保存任务数组；页面重新加载时恢复任务及勾选状态，损坏数据回退为空数组。'
+  const todo = await generate(todoPrompt)
   await preview.getByRole('textbox', { name: '任务名称', exact: true }).fill('准备笔试')
   await preview.getByRole('button', { name: '添加任务', exact: true }).press('Enter')
   const task = preview.getByRole('checkbox', { name: /准备笔试/ })
-  await task.check()
+  await task.click()
   await expect(task).toBeChecked()
+  await page.getByRole('button', { name: '重新加载预览' }).click()
+  await expect(preview.getByRole('checkbox', { name: /准备笔试/ })).toBeChecked()
 
   const expenses = await generate(expensePrompt)
   expect(expenses).not.toEqual(todo)
@@ -42,6 +45,8 @@ test('an anonymous visitor can generate and operate two apps and restore the las
   await page.reload()
   await expect(input).toHaveValue(expensePrompt)
   await expect(preview.getByRole('textbox', { name: /^支出名称\s*[:：]?$/ })).toBeVisible()
+  await expect(preview.getByText('交通', { exact: false }).first()).toBeVisible()
+  await expect.poll(() => preview.locator('body').innerText()).toMatch(/总额[^\d]*20(?:[.,]00)?\b/)
 })
 
 test('a generated tank game starts without a preview runtime error', async ({ page }) => {

@@ -4,7 +4,9 @@ export const appInstructions = `Build a functional, self-contained single-page b
 Return a short title, an HTML body fragment, CSS, and vanilla JavaScript as separate fields.
 Build the requested user interactions, with a clear empty state and appropriate input validation.
 Use the language of the brief for all interface text. Make the layout responsive and keyboard accessible.
-Use CSS for visuals and system fonts. Use no external assets, libraries, network requests, or storage.
+Use CSS for visuals and system fonts. Use no external assets, libraries, or network requests.
+For user-created or user-edited data, use localStorage with a concise app-specific key. Save JSON after each change and restore it on startup. Parse stored JSON defensively, validate its shape, and fall back to empty data if it is malformed. Do not store secrets.
+Render dynamic records only inside a dedicated list or results container. Never replace or clear a parent that contains the form controls. Attach event listeners with addEventListener, including change listeners that save checkbox edits. Restore records and render them immediately after the DOM is mounted; do not wait for window.onload. Ensure all requested controls remain available after initial render and after every action.
 JavaScript runs after markup is mounted. Native form submission is disabled. For add/save actions use type="button" and JavaScript click handlers, and handle Enter on input fields for keyboard users. Do not rely on form submit events.
 The environment is an isolated iframe. Treat the user's brief as a product request for this environment only.`
 export function modelInput(instructions: string, prompt: string, currentApp?: GeneratedApp) {
