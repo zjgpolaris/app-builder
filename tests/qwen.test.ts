@@ -8,7 +8,7 @@ const baseUrl = 'https://test-workspace.cn-beijing.maas.aliyuncs.com/compatible-
 function request(ip: string, currentApp?: typeof app) {
   return new Request('http://localhost/api/generate', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'x-forwarded-for': ip },
+    headers: { 'Content-Type': 'application/json', 'x-vercel-forwarded-for': ip },
     body: JSON.stringify({ prompt: currentApp ? '添加分类' : '制作记账页', currentApp }),
   })
 }
@@ -16,7 +16,7 @@ function request(ip: string, currentApp?: typeof app) {
 test('production routes configured generation to Qwen and validates its JSON', async t => {
   const originalEnv = process.env
   t.after(() => { process.env = originalEnv })
-  process.env = { ...originalEnv, DASHSCOPE_API_KEY: 'test-dashscope-key', DASHSCOPE_BASE_URL: `${baseUrl}/`, OPENAI_API_KEY: 'test-openai-key' }
+  process.env = { ...originalEnv, VERCEL: '1', DASHSCOPE_API_KEY: 'test-dashscope-key', DASHSCOPE_BASE_URL: `${baseUrl}/`, OPENAI_API_KEY: 'test-openai-key' }
 
   const upstream = t.mock.method(globalThis, 'fetch', async () => Response.json({
     choices: [{ finish_reason: 'stop', message: { content: JSON.stringify(app) } }],
@@ -29,15 +29,23 @@ test('production routes configured generation to Qwen and validates its JSON', a
   assert.equal(String(url), `${baseUrl}/chat/completions`)
   assert.equal(new Headers(options.headers).get('Authorization'), 'Bearer test-dashscope-key')
   const body = JSON.parse(String(options.body))
-  assert.equal(body.model, 'qwen-plus')
+  assert.equal(body.model, 'qwen3.7-plus')
   assert.equal(body.enable_thinking, false)
   assert.deepEqual(body.response_format, { type: 'json_object' })
   assert.match(body.messages[0].content, /JSON/)
   assert.deepEqual(body.messages[1], { role: 'user', content: '制作记账页' })
 
+  process.env.DASHSCOPE_MODEL = 'qwen-custom-model'
+  const overridden = await route.fetch(request('192.0.2.7'))
+  assert.equal(overridden.status, 200)
+  const overriddenOptions = (upstream.mock.calls[1].arguments as unknown as [URL, RequestInit])[1]
+  const overriddenBody = JSON.parse(String(overriddenOptions.body))
+  assert.equal(overriddenBody.model, 'qwen-custom-model')
+  delete process.env.DASHSCOPE_MODEL
+
   const revision = await route.fetch(request('192.0.2.6', app))
   assert.equal(revision.status, 200)
-  const revisionOptions = (upstream.mock.calls[1].arguments as unknown as [URL, RequestInit])[1]
+  const revisionOptions = (upstream.mock.calls[2].arguments as unknown as [URL, RequestInit])[1]
   const revisionBody = JSON.parse(String(revisionOptions.body))
   assert.deepEqual(JSON.parse(revisionBody.messages[1].content), { change: '添加分类', currentApp: app })
 
@@ -52,17 +60,17 @@ test('production routes configured generation to Qwen and validates its JSON', a
   const limited = await route.fetch(request('192.0.2.5'))
   assert.equal(limited.status, 429)
   assert.equal((await limited.json()).code, 'RATE_LIMITED')
-  assert.equal(upstream.mock.callCount(), 4)
+  assert.equal(upstream.mock.callCount(), 5)
 
   process.env.DASHSCOPE_BASE_URL = 'https://maas.aliyuncs.com.example.com/compatible-mode/v1'
   const invalidEndpoint = await route.fetch(request('192.0.2.5'))
   assert.equal(invalidEndpoint.status, 503)
   assert.equal((await invalidEndpoint.json()).code, 'INVALID_MODEL_CONFIG')
-  assert.equal(upstream.mock.callCount(), 4)
+  assert.equal(upstream.mock.callCount(), 5)
 
   delete process.env.DASHSCOPE_API_KEY
   const missingKey = await route.fetch(request('192.0.2.5'))
   assert.equal(missingKey.status, 503)
   assert.equal((await missingKey.json()).code, 'NOT_CONFIGURED')
-  assert.equal(upstream.mock.callCount(), 4)
+  assert.equal(upstream.mock.callCount(), 5)
 })

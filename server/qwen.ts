@@ -21,7 +21,7 @@ function chatEndpoint(baseUrl: string) {
 export function configuredQwenModel(env: DashScopeEnv, fetcher = fetch) {
   const apiKey = env.DASHSCOPE_API_KEY?.trim()
   const baseUrl = env.DASHSCOPE_BASE_URL?.trim()
-  const model = env.DASHSCOPE_MODEL?.trim() || 'qwen-plus'
+  const model = env.DASHSCOPE_MODEL?.trim() || 'qwen3.7-plus'
   if (!apiKey && !baseUrl) return undefined
 
   return async (prompt: string, signal: AbortSignal, currentApp?: GeneratedApp): Promise<unknown> => {

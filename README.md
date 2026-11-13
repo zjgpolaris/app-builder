@@ -32,7 +32,7 @@ npm run dev
 
 选择一种真实模型接入方式：
 
-- **阿里云百炼（千问）**：将 `DASHSCOPE_API_KEY` 和 `DASHSCOPE_BASE_URL` 写入 `.env.local`，然后重启服务。`DASHSCOPE_MODEL` 默认为 `qwen-plus`。接口地址以百炼控制台为准，填写到 `/compatible-mode/v1`。北京业务空间的地址示例在 `.env.example`。
+- **阿里云百炼（千问）**：将 `DASHSCOPE_API_KEY` 和 `DASHSCOPE_BASE_URL` 写入 `.env.local`，然后重启服务。`DASHSCOPE_MODEL` 默认为 `qwen3.7-plus`。接口地址以百炼控制台为准，填写到 `/compatible-mode/v1`。北京业务空间的地址示例在 `.env.example`。
 - **OpenAI**：在 `.env.local` 填写 `OPENAI_API_KEY`。`OPENAI_MODEL` 默认为 `gpt-5-mini`，可改为支持 Responses API 结构化输出的模型。
 - **Ollama**：启动 [Ollama](https://docs.ollama.com/macos) 后运行 `ollama pull qwen2.5-coder:3b`，再用 `OLLAMA_MODEL=qwen2.5-coder:3b npm run dev` 启动工作台。也可以把 `OLLAMA_MODEL` 写入 `.env.local` 并重启工作台。本地开发服务会访问 `127.0.0.1:11434`。
 
@@ -59,7 +59,9 @@ APP_BUILDER_URL=http://127.0.0.1:5173 npm run test:live
 
 生成接口带有按实例计数的限流。对外开放前，在 Vercel 配置 `/api/generate` 的入口限流，并为模型项目配置用量告警。用无痕窗口分别生成待办清单和记账页，实际操作预览，再刷新确认项目恢复。
 
-使用千问时，在 Vercel 项目的 **Environment Variables** 中为 **Production** 添加 `DASHSCOPE_API_KEY`（类型选 **Secret**）与 `DASHSCOPE_BASE_URL`。`DASHSCOPE_MODEL` 可选，默认 `qwen-plus`。保存后创建一次新的生产部署。项目发现百炼密钥或地址时优先使用千问，配置不完整或请求失败时返回错误。
+使用千问时，在 Vercel 项目的 **Environment Variables** 中为 **Production** 添加 `DASHSCOPE_API_KEY`（类型选 **Secret**）与 `DASHSCOPE_BASE_URL`。`DASHSCOPE_MODEL` 可选，默认 `qwen3.7-plus`。保存后创建一次新的生产部署。项目发现百炼密钥或地址时优先使用千问，配置不完整或请求失败时返回错误。
+
+`qwen3.7-plus` 的新人免费额度仅在符合百炼当期政策、华北2（北京）地域和有效期的账户下生效。部署前必须在百炼控制台的「免费额度」页确认该模型显示剩余 Token，并为它开启「免费额度用完即停」。模型政策变更时，通过 `DASHSCOPE_MODEL` 显式切换，不要仅根据模型可调用判断是否免费。
 
 只使用新人免费额度时，请在百炼控制台选 **华北 2（北京）**，确认所选模型还有额度，并在发送请求前开启「免费额度用完即停」。免费额度由百炼按模型管理。[百炼免费额度说明](https://help.aliyun.com/zh/model-studio/new-free-quota)
 
