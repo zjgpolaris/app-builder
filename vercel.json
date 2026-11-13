@@ -5,6 +5,6 @@
     "DASHSCOPE_MODEL": "qwen3.8-flash"
   },
   "functions": {
-    "api/generate.ts": { "maxDuration": 60 }
+    "api/generate.ts": { "maxDuration": 90 }
   }
 }

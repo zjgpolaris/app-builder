@@ -21,7 +21,7 @@ async function generateApp(prompt: string, currentApp?: GeneratedApp) {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ prompt, currentApp }),
-    signal: AbortSignal.timeout(65_000),
+    signal: AbortSignal.timeout(100_000),
   })
   const data = await response.json().catch(() => null)
   if (!response.ok) {

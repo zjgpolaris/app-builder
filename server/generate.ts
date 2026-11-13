@@ -80,7 +80,7 @@ async function readGenerationRequest(request: Request) {
 type Model = (prompt: string, signal: AbortSignal, currentApp?: GeneratedApp) => Promise<unknown>
 type Options = { timeoutMs?: number; allow?: (request: Request) => boolean }
 
-export function createGenerateHandler(model: Model, { timeoutMs = 55_000, allow }: Options = {}) {
+export function createGenerateHandler(model: Model, { timeoutMs = 85_000, allow }: Options = {}) {
   return async (request: Request): Promise<Response> => {
     try {
       if (request.method !== 'POST') throw new GenerationError('METHOD_NOT_ALLOWED', 405)

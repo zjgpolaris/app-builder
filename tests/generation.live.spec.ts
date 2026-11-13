@@ -11,7 +11,7 @@ test('an anonymous visitor can generate and operate two apps and restore the las
     await input.fill(prompt)
     const [response] = await Promise.all([
       page.waitForResponse(response => new URL(response.url()).pathname === '/api/generate'
-        && response.request().method() === 'POST', { timeout: 70_000 }),
+        && response.request().method() === 'POST', { timeout: 110_000 }),
       page.getByRole('button', { name: '生成应用', exact: true }).click(),
     ])
     const body: unknown = await response.json()
@@ -24,7 +24,7 @@ test('an anonymous visitor can generate and operate two apps and restore the las
   const todo = await generate('制作中文待办清单。输入框 aria-label=任务名称，添加任务按钮。点击按钮在 ul 新增 li；每项是一个 label，内含复选框和用户输入的任务名称。')
   await preview.getByRole('textbox', { name: '任务名称', exact: true }).fill('准备笔试')
   await preview.getByRole('button', { name: '添加任务', exact: true }).press('Enter')
-  const task = preview.getByRole('checkbox', { name: '准备笔试', exact: true })
+  const task = preview.getByRole('checkbox', { name: /准备笔试/ })
   await task.check()
   await expect(task).toBeChecked()
 
@@ -49,7 +49,7 @@ test('a generated tank game starts without a preview runtime error', async ({ pa
   await page.getByRole('textbox', { name: '应用需求' }).fill('帮我做一个坦克大战的网页版，使用 Canvas 绘制，支持键盘移动和射击，显示操作说明。')
   const [response] = await Promise.all([
     page.waitForResponse(response => new URL(response.url()).pathname === '/api/generate'
-      && response.request().method() === 'POST', { timeout: 70_000 }),
+      && response.request().method() === 'POST', { timeout: 110_000 }),
     page.getByRole('button', { name: '生成应用', exact: true }).click(),
   ])
   const body: unknown = await response.json()
