@@ -15,9 +15,15 @@ function previewDocument(app: GeneratedApp) {
 <body>
 <script>
 (() => {
-  const report = () => parent.postMessage({ type: 'app-builder:preview-error' }, '*');
-  window.addEventListener('error', report);
-  window.addEventListener('unhandledrejection', report);
+  const summarize = value => {
+    const name = value && typeof value === 'object' && typeof value.name === 'string' ? value.name : '';
+    const detail = value && typeof value === 'object' && typeof value.message === 'string'
+      ? value.message : String(value || '未知错误');
+    return (name && !detail.startsWith(name) ? name + ': ' + detail : detail).slice(0, 240);
+  };
+  const report = value => parent.postMessage({ type: 'app-builder:preview-error', message: summarize(value) }, '*');
+  window.addEventListener('error', event => report(event.error || event.message));
+  window.addEventListener('unhandledrejection', event => report(event.reason));
   const app = ${payload};
   document.title = app.title;
   const style = document.createElement('style');
@@ -36,15 +42,18 @@ function previewDocument(app: GeneratedApp) {
 </html>`
 }
 
-export function Preview({ app }: { app: GeneratedApp }) {
+export function Preview({ app, onRepair }: { app: GeneratedApp; onRepair?: (message: string) => void }) {
   const frame = useRef<HTMLIFrameElement>(null)
-  const [failed, setFailed] = useState(false)
+  const [failure, setFailure] = useState('')
   const [document] = useState(() => previewDocument(app))
 
   useLayoutEffect(() => {
     const onMessage = (event: MessageEvent) => {
       if (event.source === frame.current?.contentWindow && event.origin === 'null'
-        && event.data?.type === 'app-builder:preview-error') setFailed(true)
+        && event.data?.type === 'app-builder:preview-error') {
+        const message = typeof event.data.message === 'string' ? event.data.message.slice(0, 240) : '未知错误'
+        setFailure(message)
+      }
     }
     window.addEventListener('message', onMessage)
     return () => window.removeEventListener('message', onMessage)
@@ -52,7 +61,10 @@ export function Preview({ app }: { app: GeneratedApp }) {
 
   return (
     <>
-      {failed ? <div className="preview-error" role="status">预览脚本遇到错误。可重新生成应用。</div> : null}
+      {failure ? <div className="preview-error" role="alert">
+        <span>预览脚本遇到错误：{failure}</span>
+        {onRepair ? <button type="button" onClick={() => onRepair(failure)}>修复应用</button> : null}
+      </div> : null}
       <iframe ref={frame} title="应用预览" sandbox="allow-scripts" srcDoc={document} />
     </>
   )

@@ -1,6 +1,6 @@
-import { Script } from 'node:vm'
 import { isGeneratedApp, PROMPT_LIMIT } from '../src/contract.ts'
 import type { GeneratedApp } from '../src/contract.ts'
+import { scriptSyntaxError } from './script.ts'
 
 const creationBodyLimit = 16 * 1024
 // Each code character may take up to six bytes after JSON escaping.
@@ -100,14 +100,7 @@ export function createGenerateHandler(model: Model, { timeoutMs = 55_000, allow 
         const output = await Promise.race([model(prompt, controller.signal, currentApp), timeout])
         if (!isGeneratedApp(output)) throw new GenerationError('INVALID_OUTPUT', 502)
         const { title, html, css, js } = output
-        if (currentApp) {
-          try {
-            // Check syntax without executing generated code on the server.
-            new Script(js)
-          } catch {
-            throw new GenerationError('INVALID_OUTPUT', 502)
-          }
-        }
+        if (scriptSyntaxError(js)) throw new GenerationError('INVALID_OUTPUT', 502)
         return json({ title, html, css, js })
       } finally {
         clearTimeout(timer)

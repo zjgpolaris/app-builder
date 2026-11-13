@@ -43,3 +43,21 @@ test('an anonymous visitor can generate and operate two apps and restore the las
   await expect(input).toHaveValue(expensePrompt)
   await expect(preview.getByRole('textbox', { name: /^支出名称\s*[:：]?$/ })).toBeVisible()
 })
+
+test('a generated tank game starts without a preview runtime error', async ({ page }) => {
+  await page.goto('/')
+  await page.getByRole('textbox', { name: '应用需求' }).fill('帮我做一个坦克大战的网页版，使用 Canvas 绘制，支持键盘移动和射击，显示操作说明。')
+  const [response] = await Promise.all([
+    page.waitForResponse(response => new URL(response.url()).pathname === '/api/generate'
+      && response.request().method() === 'POST', { timeout: 70_000 }),
+    page.getByRole('button', { name: '生成应用', exact: true }).click(),
+  ])
+  const body: unknown = await response.json()
+  expect(response.ok(), `生成接口返回 HTTP ${response.status()}：${JSON.stringify(body).slice(0, 200)}`).toBe(true)
+  expect(isGeneratedApp(body)).toBe(true)
+
+  const preview = page.frameLocator('iframe[title="应用预览"]')
+  await expect(preview.locator('canvas')).toBeVisible()
+  await page.waitForTimeout(1_500)
+  await expect(page.locator('.preview-error')).toHaveCount(0)
+})

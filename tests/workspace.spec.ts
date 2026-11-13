@@ -153,7 +153,10 @@ test('a preview runtime error is reported inside the workspace', async ({ page }
   await page.goto('/')
   await page.getByRole('button', { name: '填入待办清单需求' }).click()
   await page.getByRole('button', { name: '生成应用' }).click()
-  await expect(page.getByText('预览脚本遇到错误。可重新生成应用。')).toBeVisible()
+  await expect(page.getByText(/Preview fixture error/)).toBeVisible()
+  await page.getByRole('button', { name: '修复应用' }).click()
+  await expect(page.getByRole('textbox', { name: '修改需求' })).toHaveValue(/Preview fixture error/)
+  await expect(page.getByRole('button', { name: '应用修改' })).toBeVisible()
 })
 
 test('the local HTTP route rejects empty prompts', async ({ request }) => {

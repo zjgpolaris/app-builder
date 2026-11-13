@@ -1,8 +1,8 @@
-import { Script } from 'node:vm'
 import { generatedAppSchema, isGeneratedApp } from '../src/contract.ts'
 import type { GeneratedApp } from '../src/contract.ts'
 import { GenerationError } from './generate.ts'
 import { appInstructions, modelInput } from './instructions.ts'
+import { scriptSyntaxError } from './script.ts'
 
 type OllamaResponse = { done?: boolean; done_reason?: string; message?: { content?: string } }
 
@@ -15,15 +15,6 @@ const scriptSchema = {
   properties: { js: { type: 'string' } },
   required: ['js'],
   additionalProperties: false,
-}
-
-function syntaxError(js: string): string | undefined {
-  try {
-    // Compile without running the generated code. Execution remains in the browser sandbox.
-    new Script(js)
-  } catch (error) {
-    return error instanceof Error ? error.message : 'Invalid JavaScript'
-  }
 }
 
 export function createOllamaModel(model: string, fetcher = fetch) {
@@ -68,7 +59,7 @@ export function createOllamaModel(model: string, fetcher = fetch) {
     const { instructions, input } = modelInput(localInstructions, prompt, currentApp)
     const app = await chat(instructions, input, generatedAppSchema, signal, currentApp ? 8192 : 4096)
     if (!isGeneratedApp(app)) throw new GenerationError('INVALID_OUTPUT', 502)
-    const error = syntaxError(app.js)
+    const error = scriptSyntaxError(app.js)
     if (!error) return app
 
     const repair = await chat(
@@ -77,7 +68,7 @@ export function createOllamaModel(model: string, fetcher = fetch) {
       scriptSchema,
       signal,
     ) as { js?: unknown } | null
-    if (typeof repair?.js !== 'string' || !repair.js.trim() || syntaxError(repair.js)) {
+    if (typeof repair?.js !== 'string' || !repair.js.trim() || scriptSyntaxError(repair.js)) {
       throw new GenerationError('INVALID_OUTPUT', 502)
     }
     return { ...app, js: repair.js }

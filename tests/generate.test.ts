@@ -34,6 +34,13 @@ test('a revision with invalid JavaScript cannot replace the current version', as
   assert.equal((await response.json()).code, 'INVALID_OUTPUT')
 })
 
+test('an initial generation with invalid JavaScript is rejected', async () => {
+  const handler = createGenerateHandler(async () => ({ ...app, js: 'const = ;' }))
+  const response = await handler(request('制作坦克大战'))
+  assert.equal(response.status, 502)
+  assert.equal((await response.json()).code, 'INVALID_OUTPUT')
+})
+
 test('blank prompts do not call the model', async () => {
   const handler = createGenerateHandler(async () => {
     assert.fail('model must not be called')

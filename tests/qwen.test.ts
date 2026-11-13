@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import route from '../api/generate.ts'
+import { configuredQwenModel } from '../server/qwen.ts'
 
 const app = { title: '记账页', html: '<main>记账页</main>', css: '', js: '' }
 const baseUrl = 'https://test-workspace.cn-beijing.maas.aliyuncs.com/compatible-mode/v1'
@@ -73,4 +74,27 @@ test('production routes configured generation to Qwen and validates its JSON', a
   assert.equal(missingKey.status, 503)
   assert.equal((await missingKey.json()).code, 'NOT_CONFIGURED')
   assert.equal(upstream.mock.callCount(), 5)
+})
+
+test('Qwen repairs malformed JavaScript once before returning the app', async () => {
+  const broken = { ...app, js: 'const = ;' }
+  const repaired = { ...app, js: 'document.body.dataset.ready = "true"' }
+  const requests: Record<string, unknown>[] = []
+  const responses = [broken, repaired]
+  const model = configuredQwenModel({
+    DASHSCOPE_API_KEY: 'test-key',
+    DASHSCOPE_BASE_URL: baseUrl,
+  }, async (_url, options) => {
+    requests.push(JSON.parse(String(options?.body)))
+    return Response.json({
+      choices: [{ finish_reason: 'stop', message: { content: JSON.stringify(responses.shift()) } }],
+    })
+  })
+
+  assert.ok(model)
+  assert.deepEqual(await model('制作坦克大战', new AbortController().signal), repaired)
+  assert.equal(requests.length, 2)
+  const repairInput = JSON.parse(String((requests[1].messages as { content: string }[])[1].content))
+  assert.equal(repairInput.app.js, broken.js)
+  assert.match(repairInput.error, /Unexpected token/)
 })

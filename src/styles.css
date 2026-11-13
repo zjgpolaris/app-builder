@@ -162,7 +162,7 @@ textarea::placeholder { color: #617169; }
 }
 .request-error { border-radius: 9px; margin-top: 10px; }
 .request-error svg { flex: none; }
-.request-error button {
+.request-error button, .preview-error button {
   margin-left: auto;
   flex: none;
   color: inherit;
@@ -172,6 +172,7 @@ textarea::placeholder { color: #617169; }
   text-decoration: underline;
   padding: 4px;
 }
+.preview-error span { overflow-wrap: anywhere; }
 
 .examples { margin-top: 24px; }
 .examples h3 { color: var(--muted); margin: 0 0 9px; font-size: 13px; font-weight: 650; }

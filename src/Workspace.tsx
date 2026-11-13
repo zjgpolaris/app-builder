@@ -58,6 +58,14 @@ export function Workspace() {
     promptInput.current?.focus()
   }
 
+  function repairPreview(message: string) {
+    if (!project || sample) return
+    setRevision(`修复预览运行错误：${message}。保留现有功能和界面，并确保应用启动后可以正常交互。`)
+    setEditing(true)
+    setError('')
+    requestAnimationFrame(() => promptInput.current?.focus())
+  }
+
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     if (inFlight.current) return
@@ -197,7 +205,8 @@ export function Workspace() {
                 <span className="browser-title"><Globe2 size={13} /> {previewApp?.title ?? '应用预览'}</span>
               </div>
               <div className="preview-surface" aria-busy={pending}>
-                {previewApp ? <Preview key={previewVersion} app={previewApp} /> : (
+                {previewApp ? <Preview key={previewVersion} app={previewApp}
+                  onRepair={project && !sample ? repairPreview : undefined} /> : (
                   <div className="preview-empty">
                     <div className="preview-glyph" aria-hidden="true">
                       {pending ? <LoaderCircle size={30} className="spinner" /> : <Layers3 size={31} strokeWidth={1.55} />}
