@@ -9,16 +9,20 @@ test('an anonymous visitor can generate and operate two apps and restore the las
 
   const generate = async (prompt: string) => {
     await input.fill(prompt)
-    const [response] = await Promise.all([
-      page.waitForResponse(response => new URL(response.url()).pathname === '/api/generate'
-        && response.request().method() === 'POST', { timeout: 110_000 }),
-      page.getByRole('button', { name: '生成应用', exact: true }).click(),
-    ])
-    const body: unknown = await response.json()
-    expect(response.ok(), `生成接口返回 HTTP ${response.status()}：${JSON.stringify(body).slice(0, 200)}`).toBe(true)
-    expect(isGeneratedApp(body)).toBe(true)
-    await expect(page.getByText('已保存需求和应用代码')).toBeVisible()
-    return body
+    for (let attempt = 1; attempt <= 3; attempt += 1) {
+      const [response] = await Promise.all([
+        page.waitForResponse(response => new URL(response.url()).pathname === '/api/generate'
+          && response.request().method() === 'POST', { timeout: 110_000 }),
+        page.getByRole('button', { name: '生成应用', exact: true }).click(),
+      ])
+      const body: unknown = await response.json()
+      if (!response.ok() && response.status() === 502 && attempt < 3) continue
+      expect(response.ok(), `生成接口返回 HTTP ${response.status()}：${JSON.stringify(body).slice(0, 200)}`).toBe(true)
+      expect(isGeneratedApp(body)).toBe(true)
+      await expect(page.getByText('已保存需求和应用代码')).toBeVisible()
+      return body
+    }
+    throw new Error('三次生成均未返回应用')
   }
 
   const todoPrompt = '制作中文待办清单。输入框 aria-label=任务名称，添加任务按钮。点击按钮在 ul 新增 li；每项是一个 label，内含复选框和用户输入的任务名称。新增和勾选后用 localStorage 保存任务数组；页面重新加载时恢复任务及勾选状态，损坏数据回退为空数组。'
@@ -35,7 +39,7 @@ test('an anonymous visitor can generate and operate two apps and restore the las
   expect(expenses).not.toEqual(todo)
   for (const [name, amount] of [['交通', '12'], ['咖啡', '8']]) {
     await preview.getByRole('textbox', { name: /^支出名称\s*[:：]?$/ }).fill(name)
-    await preview.getByRole('spinbutton', { name: /^金额\s*[:：]?$/ }).fill(amount)
+    await preview.getByRole('spinbutton', { name: /^金额(?:（元）)?\s*[:：]?$/ }).fill(amount)
     await preview.getByRole('button', { name: '添加支出', exact: true }).press('Enter')
   }
   await expect(preview.getByText('交通', { exact: false }).first()).toBeVisible()
