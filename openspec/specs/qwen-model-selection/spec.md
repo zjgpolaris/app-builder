@@ -7,12 +7,12 @@
 
 ### Requirement: 默认选择有新人免费额度的千问模型
 
-生成服务 SHALL 在未设置 `DASHSCOPE_MODEL` 时使用 `qwen3.7-plus`，并 SHALL 在设置环境变量时使用显式指定的模型。
+生成服务 SHALL 在未设置 `DASHSCOPE_MODEL` 时使用 `qwen3.8-flash`，并 SHALL 在设置环境变量时使用显式指定的模型。
 
 #### Scenario: 未配置模型名称
 
 - **WHEN** 生产环境配置百炼 API Key 和北京地域接口但未设置 `DASHSCOPE_MODEL`
-- **THEN** 模型请求使用 `qwen3.7-plus`
+- **THEN** 模型请求使用 `qwen3.8-flash`
 
 #### Scenario: 显式覆盖模型名称
 

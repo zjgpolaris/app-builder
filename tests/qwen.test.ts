@@ -29,7 +29,7 @@ test('production routes configured generation to Qwen and validates its JSON', a
   assert.equal(String(url), `${baseUrl}/chat/completions`)
   assert.equal(new Headers(options.headers).get('Authorization'), 'Bearer test-dashscope-key')
   const body = JSON.parse(String(options.body))
-  assert.equal(body.model, 'qwen3.7-plus')
+  assert.equal(body.model, 'qwen3.8-flash')
   assert.equal(body.enable_thinking, false)
   assert.deepEqual(body.response_format, { type: 'json_object' })
   assert.match(body.messages[0].content, /JSON/)

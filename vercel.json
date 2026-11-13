@@ -1,6 +1,9 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": "vite",
+  "env": {
+    "DASHSCOPE_MODEL": "qwen3.8-flash"
+  },
   "functions": {
     "api/generate.ts": { "maxDuration": 60 }
   }
